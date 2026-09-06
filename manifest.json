@@ -1,0 +1,9 @@
+{
+  "name":"American English Accent Trainer",
+  "short_name":"Accent Trainer",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#f5f7fb",
+  "theme_color":"#111111",
+  "description":"A 6-week General American accent training app with diagnostics, stress practice, reductions, linking and speaking drills."
+}
