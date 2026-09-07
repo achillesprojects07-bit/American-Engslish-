@@ -21,17 +21,20 @@ window.LessonEngine={
       if(!engine){start.disabled=true;stop.disabled=true;status.textContent='Recorder unavailable. Refresh the app.';return;}
       const begin=async()=>{
         try{
+          if(rec.dataset.recordingId){await window.RecordingStore?.remove?.(rec.dataset.recordingId);delete rec.dataset.recordingId;}
           if(currentUrl){URL.revokeObjectURL(currentUrl);currentUrl=null;}
-          audio.pause();audio.removeAttribute('src');audio.load();audio.hidden=true;retry.hidden=true;start.hidden=false;
-          await engine.start();start.disabled=true;stop.disabled=false;status.textContent='Recording…';
+          rec.dataset.recorded='false';audio.pause();audio.removeAttribute('src');audio.load();audio.hidden=true;retry.hidden=true;start.hidden=false;
+          await engine.start();start.disabled=true;stop.disabled=false;status.textContent='Recording…';onStateChange?.();
         }catch(e){status.textContent=e?.message||'Microphone could not start.';start.disabled=false;}
       };
       start.addEventListener('click',begin);retry.addEventListener('click',begin);
       stop.addEventListener('click',async()=>{
         try{
-          const out=await engine.stop();currentUrl=out.url;audio.src=currentUrl;audio.hidden=false;rec.dataset.recorded='true';
-          start.hidden=true;start.disabled=false;stop.disabled=true;retry.hidden=false;status.textContent='Recorded — listen back or try again.';
-          AccentStorage.addRecordingMeta({context:rec.dataset.meta||'practice'});onStateChange?.();
+          const out=await engine.stop();currentUrl=out.url;audio.src=currentUrl;audio.hidden=false;
+          const context=rec.dataset.meta||'practice';let savedId=null;
+          if(window.RecordingStore){savedId=await window.RecordingStore.save(out.blob,{context,type:out.type});rec.dataset.recordingId=savedId;}
+          rec.dataset.recorded='true';start.hidden=true;start.disabled=false;stop.disabled=true;retry.hidden=false;status.textContent='Recorded — listen back or try again.';
+          AccentStorage.addRecordingMeta({id:savedId,context,type:out.type});onStateChange?.();
         }catch(e){status.textContent=e?.message||'Recording could not be stopped.';start.disabled=false;stop.disabled=true;}
       });
     });
@@ -111,5 +114,5 @@ window.LessonEngine={
     container.querySelectorAll('.recorder').forEach(r=>r.dataset.required='true');update();
     container.querySelector('.complete-block')?.addEventListener('click',()=>{if(!this.blockReady(container))return;AccentStorage.markComplete(`day1-${block.id}`);onComplete?.(block.id);});
   },
-  stopAll(){window.AudioEngine?.stop?.();const r=window.RecordingEngine;if(r?.mediaRecorder&&r.mediaRecorder.state!=='inactive'){try{r.mediaRecorder.stop()}catch(e){}}}
+  stopAll(){window.AudioEngine?.stop?.();window.RecordingEngine?.cancel?.();}
 };
