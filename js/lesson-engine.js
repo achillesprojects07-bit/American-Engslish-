@@ -1,20 +1,38 @@
 window.LessonEngine={
   esc(s){return String(s??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]))},
   renderRecorder(label="Record your voice"){
-    return `<div class="recorder"><button class="secondary-btn record-start">🎙 ${this.esc(label)}</button><button class="secondary-btn record-stop" disabled>■ Stop</button><audio class="record-playback" controls hidden></audio></div><p class="record-status status-pill">Ready</p>`;
+    return `<div class="recorder"><button class="secondary-btn record-start">🎙 ${this.esc(label)}</button><button class="secondary-btn record-stop" disabled>■ Stop</button><button class="secondary-btn record-retry" hidden>↻ Try Again</button><audio class="record-playback" controls hidden></audio></div><p class="record-status status-pill">Ready</p>`;
   },
   bindRecorder(container){
     container.querySelectorAll('.recorder').forEach(rec=>{
-      const start=rec.querySelector('.record-start'),stop=rec.querySelector('.record-stop'),audio=rec.querySelector('.record-playback'),status=rec.nextElementSibling;
+      const start=rec.querySelector('.record-start'),stop=rec.querySelector('.record-stop'),retry=rec.querySelector('.record-retry'),audio=rec.querySelector('.record-playback'),status=rec.nextElementSibling;
       const engine=window.RecordingEngine;
+      let currentUrl=null;
       if(!engine){
         if(start) start.disabled=true;
         if(stop) stop.disabled=true;
+        if(retry) retry.hidden=true;
         if(status) status.textContent='Recorder is still loading. Refresh the app once.';
         return;
       }
-      start?.addEventListener('click',async()=>{try{await engine.start();start.disabled=true;stop.disabled=false;status.textContent='Recording…'}catch(e){status.textContent=e?.message||'Microphone could not start.'}});
-      stop?.addEventListener('click',async()=>{try{const out=await engine.stop();audio.src=out.url;audio.hidden=false;start.disabled=false;stop.disabled=true;status.textContent='Recorded — listen back and compare.'}catch(e){status.textContent=e?.message||'Recording could not be stopped.'}});
+      const beginRecording=async()=>{
+        try{
+          if(currentUrl){URL.revokeObjectURL(currentUrl);currentUrl=null;}
+          audio.pause();audio.removeAttribute('src');audio.load();audio.hidden=true;
+          retry.hidden=true;
+          await engine.start();
+          start.disabled=true;stop.disabled=false;status.textContent='Recording…';
+        }catch(e){status.textContent=e?.message||'Microphone could not start.';start.disabled=false;}
+      };
+      start?.addEventListener('click',beginRecording);
+      retry?.addEventListener('click',beginRecording);
+      stop?.addEventListener('click',async()=>{
+        try{
+          const out=await engine.stop();currentUrl=out.url;audio.src=currentUrl;audio.hidden=false;
+          start.hidden=true;start.disabled=false;stop.disabled=true;retry.hidden=false;
+          status.textContent='Recorded — listen back. Not satisfied? Try again.';
+        }catch(e){status.textContent=e?.message||'Recording could not be stopped.';start.disabled=false;stop.disabled=true;}
+      });
     });
   },
   renderDiagnostic(){
